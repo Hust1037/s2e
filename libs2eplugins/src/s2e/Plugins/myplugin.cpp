@@ -16,13 +16,14 @@ namespace plugins {
 namespace hw {
 
 extern "C" {
-
+static bool symbhw_is_mmio_symbolic(struct MemoryDesc *mr, uint64_t physaddr, uint64_t size, void *opaque);}
 static klee::ref<klee::Expr> symbhw_symbread(struct MemoryDesc *mr, uint64_t physaddress,
                                              const klee::ref<klee::Expr> &value, SymbolicHardwareAccessType type,
                                              void *opaque);
 
 static void symbhw_symbwrite(struct MemoryDesc *mr, uint64_t physaddress, const klee::ref<klee::Expr> &value,
                              SymbolicHardwareAccessType type, void *opaque);
+
 
 S2E_DEFINE_PLUGIN(myplugin, "myplugin S2E plugin", "", );
 
@@ -35,43 +36,17 @@ void myplugin::initialize() {
     //g_symbolicPortHook = SymbolicPortHook(symbhw_is_symbolic, symbhw_symbportread, symbhw_symbportwrite, this);
     g_symbolicMemoryHook = SymbolicMemoryHook(symbhw_is_mmio_symbolic, symbhw_symbread, symbhw_symbwrite, this);
 }
-
-template <typename T> bool myplugin::parseRangeList(ConfigFile *cfg, const std::string &key, T &result) {
-    bool ok;
-
-    int ranges = cfg->getListSize(key, &ok);
-    if (!ok) {
-        getWarningsStream() << "Could not parse ranges: " << key << "\n";
-        return false;
+template <typename T, typename U> inline bool myplugin::isSymbolic(T ports, U port) {
+    for (auto &p : ports) {
+        if (port >= p.first && port <= p.second) {
+            return true;
+        }
     }
 
-    for (int i = 0; i < ranges; ++i) {
-        std::stringstream ss;
-        ss << key << "[" << (i + 1) << "]";
-        uint64_t start = cfg->getInt(ss.str() + "[1]", 0, &ok);
-        if (!ok) {
-            getWarningsStream() << "Could not parse start port: " << ss.str() + "[1]"
-                                << "\n";
-            return false;
-        }
-
-        uint64_t end = cfg->getInt(ss.str() + "[2]", 0, &ok);
-        if (!ok) {
-            getWarningsStream() << "Could not parse port range: " << ss.str() + "[2]"
-                                << "\n";
-            return false;
-        }
-
-        if (!(start <= end)) {
-            getWarningsStream() << hexval(start) << " is greater than " << hexval(end) << "\n";
-            return false;
-        }
-
-        result.push_back(std::make_pair(start, end));
-    }
-
-    return true;
+    return false;
 }
+
+
 
 ///
 /// \brief myplugin::parseConfig
@@ -106,7 +81,9 @@ bool myplugin::parseConfigIoT(void) {
 
     return true;
 }
-
+bool myplugin::isMmioSymbolic(uint64_t physAddr) {
+    return isSymbolic(m_mmio, physAddr);
+}
 static bool symbhw_is_mmio_symbolic(struct MemoryDesc *mr, uint64_t physaddr, uint64_t size, void *opaque) {
     myplugin *hw = static_cast<myplugin *>(opaque);
     return hw->isMmioSymbolic(physaddr);
@@ -139,6 +116,9 @@ klee::ref<klee::Expr> myplugin::createExpression(S2EExecutionState *state, Symbo
         case SYMB_DMA:
             ss << "dmaread_";
             break;
+	case SYMB_PORT:
+            ss << "portread_";
+            break;
     }
 
     ss << hexval(address) << "@" << hexval(state->regs()->getPc());
@@ -151,16 +131,13 @@ klee::ref<klee::Expr> myplugin::createExpression(S2EExecutionState *state, Symbo
         return state->createSymbolicValue(ss.str(), size * 8, concolicValue);
     } 
 	//所有返回符号值
-	//else {
-        //return klee::ExtractExpr::create(klee::ConstantExpr::create(concreteValue, 64), 0, size * 8);
-    //}
+	else {
+        return klee::ExtractExpr::create(klee::ConstantExpr::create(concreteValue, 64), 0, size * 8);
+    }
 }
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////
-static bool symbhw_is_mmio_symbolic(struct MemoryDesc *mr, uint64_t physaddr, uint64_t size, void *opaque) {
-    myplugin *hw = static_cast<myplugin *>(opaque);
-    return hw->isMmioSymbolic(physaddr);
-}
+
 // XXX: remove MemoryDesc
 static klee::ref<klee::Expr> symbhw_symbread(struct MemoryDesc *mr, uint64_t physaddress,
                                              const klee::ref<klee::Expr> &value, SymbolicHardwareAccessType type,
@@ -179,14 +156,17 @@ static klee::ref<klee::Expr> symbhw_symbread(struct MemoryDesc *mr, uint64_t phy
 static void symbhw_symbwrite(struct MemoryDesc *mr, uint64_t physaddress, const klee::ref<klee::Expr> &value,
                              SymbolicHardwareAccessType type, void *opaque) {
     myplugin *hw = static_cast<myplugin *>(opaque);
-
+	uint32_t curPc = g_s2e_state->regs()->getPc();
     if (DebugSymbHw) {
-        hw->getDebugStream(g_s2e_state) << "writing mmio " << hexval(physaddress) << " value: " << value << "\n";
+        hw->getDebugStream(g_s2e_state) << "writing mmio " << hexval(physaddress) << " value: " << value
+                                        << " pc: " << hexval(curPc) << "\n";
     }
 
     // TODO: return bool to not call original handler, like for I/O
 }
 
+
 } // namespace hw
-} // namespace plugins
+}// namespace plugins
 } // namespace s2e
+
