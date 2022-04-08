@@ -70,7 +70,7 @@ public:
 
     myplugin(S2E *s2e) : Plugin(s2e) {
     }
-
+    bool isMmioSymbolic(uint64_t physAddr);
     void initialize();
     klee::ref<klee::Expr> createExpression(S2EExecutionState *state, SymbolicHardwareAccessType type, uint64_t address,
                                            unsigned size, uint64_t concreteValue);
