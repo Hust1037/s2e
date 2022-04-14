@@ -125,15 +125,13 @@ klee::ref<klee::Expr> myplugin::createExpression(S2EExecutionState *state, Symbo
     getDebugStream(g_s2e_state) << ss.str() << " size " << hexval(size) << " value=" << hexval(concreteValue)
                                 << " sym=" << (createVariable ? "yes" : "no") << "\n";
 	
-    if (createVariable) {
+
         ConcreteArray concolicValue;
         SymbHwGetConcolicVector(concreteValue, size, concolicValue);
         return state->createSymbolicValue(ss.str(), size * 8, concolicValue);
-    } 
+    
 	//所有返回符号值
-	else {
-        return klee::ExtractExpr::create(klee::ConstantExpr::create(concreteValue, 64), 0, size * 8);
-    }
+	
 }
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////
