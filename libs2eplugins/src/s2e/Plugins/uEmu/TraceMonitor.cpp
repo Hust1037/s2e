@@ -1,10 +1,3 @@
-///
-/// Copyright (C) 2010-2016, Dependable Systems Laboratory, EPFL
-/// Copyright (C) 2015-2019, Cyberhaven
-/// All rights reserved.
-///
-/// Licensed under the Cyberhaven Research License Agreement.
-///
 
 #include <s2e/cpu.h>
 #include <s2e/opcodes.h>
