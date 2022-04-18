@@ -225,6 +225,7 @@ void InvalidStatesDetection::initialize() {
 	//std::vector<uint32_t> conregs = getRegs(state, pc);
 	 //plgState->inserttbregs(conregs);
 	 //每一次运行记录寄存器的数值
+	cache_tb_num = s2e()->getConfig()->getInt(getConfigKey() + ".bb_inv1", 20, &ok);
     s2e()->getCorePlugin()->onTranslateBlockEnd.connect(
         sigc::mem_fun(*this, &InvalidStatesDetection::onTranslateBlockEnd));
     blockStartConnection = s2e()->getCorePlugin()->onTranslateBlockStart.connect(
@@ -322,6 +323,7 @@ void InvalidStatesDetection::onKillandAlivePoints(S2EExecutionState *state, uint
 void InvalidStatesDetection::onInvalidLoopDetection(S2EExecutionState *state, uint64_t pc, unsigned source_type) {
     DECLARE_PLUGINSTATE(InvalidStatesDetectionState, state);
     // update re and new tb number
+	plgState->setcachenum(cache_tb_num);
     std::vector<uint32_t> conregs = getRegs(state, pc); 
     getInfoStream(state) << state->regs()->getInterruptFlag() << " current pc = " << hexval(pc) << " re tb num "
                              << plgState->getretbnum() << " concrete mode: " << conregs[1] << "\n";
